@@ -1,0 +1,74 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f7fc;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.upload-container {
+  width: 500px;
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+input {
+  margin-top: 20px;
+}
+
+button {
+  margin-top: 20px;
+  padding: 12px 25px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+.result-card {
+  margin-top: 30px;
+}
+
+.fake-text {
+  color: red;
+}
+
+.real-text {
+  color: green;
+}
+
+.loader-container {
+  margin-top: 20px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 5px solid #ddd;
+  border-top: 5px solid #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: auto;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
