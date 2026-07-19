@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API_URL = "http://127.0.0.1:8000";
+// Leaving this as an empty string ensures the request goes to the 
+// same domain that is currently serving your website.
+const API_URL = ""; 
 
 export const predictAudio = async (audioFile) => {
   const formData = new FormData();
@@ -8,7 +10,7 @@ export const predictAudio = async (audioFile) => {
   formData.append("file", audioFile);
 
   const response = await axios.post(
-    `${API_URL}/predict`,
+    `${API_URL}/predict`, // This will resolve to /predict automatically
     formData,
     {
       headers: {
