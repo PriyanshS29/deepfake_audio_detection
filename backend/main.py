@@ -1,27 +1,15 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from tensorflow.keras.models import load_model
+from preprocess import preprocess_audio
+import numpy as np
+import shutil
+import tempfile
 import os
-from predict import predict_audio 
 
 app = FastAPI()
 
-# --- ABSOLUTE PATH CALCULATION ---
-# Get the directory where main.py is currently located
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Define the path to your static folder (assuming it's in the same folder as main.py)
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-INDEX_PATH = os.path.join(STATIC_DIR, "index.html")
-ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
-
-# DEBUG: Print to logs to help us verify paths
-print(f"DEBUG: BASE_DIR is {BASE_DIR}")
-print(f"DEBUG: Looking for index at {INDEX_PATH}")
-print(f"DEBUG: Does index exist? {os.path.exists(INDEX_PATH)}")
-# ---------------------------------
-
-# CORS setup
+# CORS configuration (agar zaroorat ho)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,25 +18,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Setup Uploads
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+MODEL_PATH = "model/cnn_lstm_mfcc.h5"
 
-# Mount Assets
-# This tells FastAPI to serve the 'assets' folder
-app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+# Model load kar rahe hain app start hote hi
+try:
+    model = load_model(MODEL_PATH)
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Error loading model: {e}")
 
-# Route for the root and all React-side routes
-@app.get("/{full_path:path}")
-async def serve_react_app(full_path: str):
-    # If the path is for the API, return 404 (or handle as needed) so it doesn't try to serve index.html
-    if full_path.startswith("predict"):
-        return {"error": "Not Found"}
+def predict_audio(audio_path):
+    features = preprocess_audio(audio_path)
+    prediction = model.predict(features)
+    score = float(prediction[0][0])
+    label = "FAKE" if score > 0.5 else "REAL"
+    confidence = score * 100 if score > 0.5 else (1 - score) * 100
     
-    return FileResponse(INDEX_PATH)
+    return {
+        "prediction": label,
+        "confidence": round(confidence, 2)
+    }
 
-# Your API Endpoint
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    # Add your existing logic here
-    return {"message": "Predict endpoint working"}
+    temp_path = None
+    try:
+        # 1. Uploaded audio file ko temporary file mein save karein
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+            shutil.copyfileobj(file.file, temp_file)
+            temp_path = temp_file.name
+
+        # 2. Model prediction function ko call karein
+        result = predict_audio(temp_path)
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    finally:
+        # 3. Cleanup: Temporary file ko delete kar dein taaki space na bhare
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
