@@ -60,19 +60,12 @@ async def predict(file: UploadFile = File(...)):
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
 
-# 2. Serve React Frontend (Yeh part miss ho gaya tha!)
-# Check if static folder exists, then mount assets if using Vite
+# 2. Serve React Frontend
 if os.path.isdir("static"):
-    # Agar Vite use kiya hai toh assets folder mount karna padta hai
-    if os.path.isdir("static/assets"):
-        app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+    # Root URL request "/" -> serve static/index.html directly
+    @app.get("/")
+    async def serve_root():
+        return FileResponse("static/index.html")
 
-# Catch-all route to serve index.html for React Router / main page
-@app.get("/{catchall:path}")
-async def serve_react_app(catchall: str):
-    file_path = os.path.join("static", catchall)
-    # Agar specific file mangi hai aur wo exist karti hai (jaise .css, .js)
-    if os.path.isfile(file_path):
-        return FileResponse(file_path)
-    # Warna default React index.html serve karo
-    return FileResponse("static/index.html")
+    # Serve rest of the static files (JS, CSS, images)
+    app.mount("/", StaticFiles(directory="static", html=True), name="static")
