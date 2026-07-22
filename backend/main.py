@@ -1,5 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from tensorflow.keras.models import load_model
 from preprocess import preprocess_audio
 import numpy as np
@@ -9,7 +11,7 @@ import os
 
 app = FastAPI()
 
-# CORS configuration (agar zaroorat ho)
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,7 +22,7 @@ app.add_middleware(
 
 MODEL_PATH = "model/cnn_lstm_mfcc.h5"
 
-# Model load kar rahe hain app start hote hi
+# Load Model
 try:
     model = load_model(MODEL_PATH)
     print("Model loaded successfully!")
@@ -39,16 +41,15 @@ def predict_audio(audio_path):
         "confidence": round(confidence, 2)
     }
 
+# 1. Prediction Endpoint
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     temp_path = None
     try:
-        # 1. Uploaded audio file ko temporary file mein save karein
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
             shutil.copyfileobj(file.file, temp_file)
             temp_path = temp_file.name
 
-        # 2. Model prediction function ko call karein
         result = predict_audio(temp_path)
         return result
 
@@ -56,6 +57,22 @@ async def predict(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
         
     finally:
-        # 3. Cleanup: Temporary file ko delete kar dein taaki space na bhare
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+
+# 2. Serve React Frontend (Yeh part miss ho gaya tha!)
+# Check if static folder exists, then mount assets if using Vite
+if os.path.isdir("static"):
+    # Agar Vite use kiya hai toh assets folder mount karna padta hai
+    if os.path.isdir("static/assets"):
+        app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
+# Catch-all route to serve index.html for React Router / main page
+@app.get("/{catchall:path}")
+async def serve_react_app(catchall: str):
+    file_path = os.path.join("static", catchall)
+    # Agar specific file mangi hai aur wo exist karti hai (jaise .css, .js)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    # Warna default React index.html serve karo
+    return FileResponse("static/index.html")
